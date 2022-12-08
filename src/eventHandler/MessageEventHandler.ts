@@ -22,8 +22,10 @@ export class MessageEventHandler implements IMessageEventHandler {
 
         if (commandMessage.command === null || commandMessage.command === undefined) return;
 
-        if (!poseCommandValidator.isValid(commandMessage)) {
-            message.channel.send(`Oops: *'${message.content}'* isn't a valid pose command to retrieve the possible pose-commands enter: !pose help`);
+        try {
+            poseCommandValidator.isValid(commandMessage, message.content);
+        } catch (error) {
+            message.channel.send(error.message);
             return;
         }
 
@@ -35,7 +37,7 @@ export class MessageEventHandler implements IMessageEventHandler {
 
         const embedBuilder : EmbedBuilder = new EmbedBuilder();
 
-        if (commandMessage.options.length === 1) {
+        if (commandMessage.options.length === 1 && commandMessage.options[0].startsWith("h")) {
                 embedBuilder.setColor(0x0099FF)
                     .setTitle('Pose commands')
                     .setDescription('List of available pose commands')
