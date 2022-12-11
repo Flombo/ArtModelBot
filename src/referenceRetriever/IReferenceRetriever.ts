@@ -3,7 +3,7 @@ import {IReference} from "../models/referenceModels/IReference";
 
 export interface IReferenceRetriever {
 
-    loadReference(commandMessage : CommandMessage) : IReference;
+    loadReference(commandMessage : CommandMessage) : Promise<IReference>;
 
     stopSession() : void;
 

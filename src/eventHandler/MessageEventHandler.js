@@ -24,25 +24,53 @@ class MessageEventHandler {
         this.checkOptionsLength(commandMessage, message);
     }
     checkOptionsLength(commandMessage, message) {
-        const embedBuilder = new discord_js_1.EmbedBuilder();
         if (commandMessage.options.length === 1 && commandMessage.options[0].startsWith("h")) {
-            embedBuilder.setColor(0x0099FF)
-                .setTitle('Pose commands')
-                .setDescription('List of available pose commands')
-                .addFields({ name: 'Pose reference command', value: '!pose <type-option (pose, face, hands, animals, landscapes, urban)> <gender-option (all, female, male)> <clothing-option (all, nude&partiallynude, clothes&costumes)', inline: true }, { name: 'Pose help command', value: '!pose help' })
-                .setTimestamp();
+            this.sendHelpMessage(message);
         }
         else {
             message.channel.send("Retrieving reference image...");
             message.channel.sendTyping();
-            const reference = this.referenceRetriever.loadReference(commandMessage);
-            embedBuilder.setColor(0x0099FF)
-                .setTitle('Reference pose')
-                .setDescription(`Reference pose found for: *${message.content}*`)
-                .addFields({ name: 'Reference image', value: reference.referenceImage }, { name: 'Reference source | all rights belong to:', value: reference.source })
-                .setImage(reference.referenceImage)
-                .setTimestamp();
+            this.sendReference(message, commandMessage);
         }
+    }
+    /**
+     * Displays a reference for the entered command.
+     * If something went wrong an error message will be displayed.
+     * @param message
+     * @param commandMessage
+     * @private
+     */
+    sendReference(message, commandMessage) {
+        const embedBuilder = new discord_js_1.EmbedBuilder();
+        this.referenceRetriever.loadReference(commandMessage).then(reference => {
+            try {
+                embedBuilder.setColor(0x0099FF)
+                    .setTitle('Reference pose')
+                    .setDescription(`Reference pose found for: *${message.content}*`)
+                    .addFields({ name: 'Reference image', value: reference.referenceImage }, { name: 'Reference source', value: 'https://quickposes.com' }, { name: 'Owner', value: reference.source })
+                    .setImage(reference.referenceImage)
+                    .setTimestamp();
+                message.channel.send({ embeds: [embedBuilder] });
+            }
+            catch (e) {
+                embedBuilder.setColor(discord_js_1.Colors.DarkRed)
+                    .setTitle('Error while retrieving reference')
+                    .setDescription(`Due to some errors no reference could retrieved for the command *${message.content}*`)
+                    .setTimestamp();
+            }
+        });
+    }
+    sendHelpMessage(message) {
+        const embedBuilder = new discord_js_1.EmbedBuilder();
+        embedBuilder.setColor(0x0099FF)
+            .setTitle('Pose commands')
+            .setDescription('List of available pose commands')
+            .addFields({
+            name: 'Pose reference command',
+            value: '!pose <type-option (pose, face, hands, animals, landscapes, urban)> <gender-option (all, female, male)> <clothing-option (all, nude&partiallynude, clothes&costumes)',
+            inline: true
+        }, { name: 'Pose help command', value: '!pose help' })
+            .setTimestamp();
         message.channel.send({ embeds: [embedBuilder] });
     }
 }
