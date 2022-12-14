@@ -44,8 +44,14 @@ export class ReferenceRetriever implements IReferenceRetriever{
 
     private async retrieveReferenceOwner(page : Page) : Promise<string> {
         return await page.evaluate(() => {
+            let owner : string = 'No owner data found';
             const spanImgOwner : HTMLSpanElement = document.querySelector('span.qp-image-owner');
-            return spanImgOwner.textContent;
+
+            if(spanImgOwner.textContent.length > 0) {
+                owner = spanImgOwner.textContent;
+            }
+
+            return owner;
         });
     }
 
@@ -63,11 +69,11 @@ export class ReferenceRetriever implements IReferenceRetriever{
      * @private
      */
     private async makeReferenceSelection(page : Page, options : Array<string>) : Promise<void> {
-        await page.evaluate((cmd : Array<string>) => {
+        await page.evaluate((options : Array<string>) => {
 
             let items = document.querySelectorAll('span.ui-button-text');
             items.forEach((item : HTMLElement) => {
-                if(cmd.includes(item.innerText, 0)) {
+                if(options.includes(item.innerText, 0)) {
                     item.click();
                 }
 
