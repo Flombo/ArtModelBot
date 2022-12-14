@@ -7,9 +7,9 @@ export interface IReferenceRetriever {
 
     stopSession() : void;
 
-    nextReference() : IReference;
+    getNextReference() : Promise<IReference>;
 
-    previousReference() : IReference;
+    getPreviousReference() : IReference;
 
     mirrorVertical() : IReference;
 

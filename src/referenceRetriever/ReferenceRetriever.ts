@@ -2,9 +2,14 @@ import {IReferenceRetriever} from "./IReferenceRetriever";
 import {CommandMessage} from "../models/CommandMessage";
 import {IReference} from "../models/referenceModels/IReference";
 import {Reference} from "../models/referenceModels/Reference";
-import puppeteer, {Page} from 'puppeteer';
+import puppeteer, {Browser, Page} from 'puppeteer';
 
 export class ReferenceRetriever implements IReferenceRetriever{
+
+    private browser : Browser = null;
+    private page : Page = null;
+    private previousReference : IReference = null;
+    private currentReference : IReference = null;
 
     async loadReference(commandMessage: CommandMessage): Promise<IReference> {
         return await this.retrieveReferenceFromSite(commandMessage);
@@ -20,22 +25,30 @@ export class ReferenceRetriever implements IReferenceRetriever{
         return new Promise(async (resolve, reject) => {
             try {
 
-                const browser = await puppeteer.launch();
-                const page = await browser.newPage();
-                await page.goto('https://quickposes.com/en/gestures/random');
+                if(this.browser !== null) {
+                    await this.browser.close();
+                    this.page = null;
+                    this.browser = null;
+                }
+
+                this.browser = await puppeteer.launch();
+
+                this.page = await this.browser.newPage();
+                await this.page.goto('https://quickposes.com/en/gestures/random');
 
                 let options : Array<string> = commandMessage.options;
 
-                await this.makeReferenceSelection(page, options)
+                await this.makeReferenceSelection(this.page, options)
 
                 // Need to wait until the DOM is completely loaded, else the reference won't be there.
-                await page.waitForNetworkIdle();
+                await this.page.waitForNetworkIdle();
 
-                const imgUrl : string = await this.retrieveReferenceUrl(page);
-                const imgOwner = await this.retrieveReferenceOwner(page);
+                const imgUrl : string = await this.retrieveReferenceUrl(this.page);
+                const imgOwner = await this.retrieveReferenceOwner(this.page);
 
-                await browser.close();
-                return resolve(new Reference(imgUrl, imgOwner));
+                this.currentReference = new Reference(imgUrl, imgOwner);
+
+                return resolve(this.currentReference);
             } catch (e) {
                 return reject(e);
             }
@@ -92,15 +105,45 @@ export class ReferenceRetriever implements IReferenceRetriever{
         return undefined;
     }
 
-    nextReference(): IReference {
-        return undefined;
+    getNextReference(): Promise<IReference> {
+        this.previousReference = this.currentReference;
+        return new Promise(async (resolve, reject) => {
+            try {
+                await this.page.evaluate(() => {
+                    const nextButton: HTMLSpanElement = document.querySelector('.button.next');
+                    nextButton.click();
+                });
+                await this.page.waitForNetworkIdle();
+
+                const imageUrl: string = await this.retrieveReferenceUrl(this.page);
+                const owner: string = await this.retrieveReferenceOwner(this.page);
+
+                return resolve(new Reference(imageUrl, owner));
+            } catch (e) {
+                return reject(e);
+            }
+        });
     }
 
-    previousReference(): IReference {
-        return undefined;
+    getPreviousReference(): IReference {
+        this.currentReference = this.previousReference;
+        return this.previousReference;
     }
 
     stopSession(): void {
+        if(this.browser !== null) {
+            new Promise(async (resolve, reject) => {
+                try {
+                    await this.page.evaluate(() => {
+                        const endButton: HTMLSpanElement = document.querySelector('.button.close');
+                        endButton.click();
+                    });
+                } catch (e) {
+                    return reject(e);
+                }
+            }).then(() =>  this.browser.close().then(() => this.browser = null));
+
+        }
     }
 
 }
