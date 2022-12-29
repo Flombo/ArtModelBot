@@ -134,6 +134,7 @@ class PoseMessageEventHandler {
                     });
                     break;
                 case 'stopSession':
+                    this.referenceRetriever.stopSession();
                     buttonInteraction.reply({ content: 'Session stopped successfully' });
                     break;
                 case '':

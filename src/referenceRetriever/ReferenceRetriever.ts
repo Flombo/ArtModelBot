@@ -106,6 +106,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
     }
 
     getNextReference(): Promise<IReference> {
+        if(this.page === null) throw new ReferenceError("Unable to load next reference. The session is already closed.");
         this.previousReferences.push(this.currentReference);
         return new Promise(async (resolve, reject) => {
             try {
@@ -127,7 +128,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
     }
 
     getPreviousReference(): IReference {
-        if(this.browser === null) throw ReferenceError();
+        if(this.browser === null) throw ReferenceError("Unable to retrieve previous reference. The session is already closed.");
         return this.previousReferences.pop();
     }
 
@@ -141,10 +142,13 @@ export class ReferenceRetriever implements IReferenceRetriever{
                     });
                     this.previousReferences = new Array<IReference>();
                     this.currentReference = null;
+                    this.browser.close();
+                    this.page = null;
+                    this.browser = null;
                 } catch (e) {
                     return reject(e);
                 }
-            }).then(() =>  this.browser.close().then(() => this.browser = null));
+            });
 
         }
     }

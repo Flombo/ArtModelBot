@@ -102,6 +102,8 @@ class ReferenceRetriever {
         return undefined;
     }
     getNextReference() {
+        if (this.page === null)
+            throw new ReferenceError("Unable to load next reference. The session is already closed.");
         this.previousReferences.push(this.currentReference);
         return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
             try {
@@ -122,7 +124,7 @@ class ReferenceRetriever {
     }
     getPreviousReference() {
         if (this.browser === null)
-            throw ReferenceError();
+            throw ReferenceError("Unable to retrieve previous reference. The session is already closed.");
         return this.previousReferences.pop();
     }
     stopSession() {
@@ -135,11 +137,14 @@ class ReferenceRetriever {
                     });
                     this.previousReferences = new Array();
                     this.currentReference = null;
+                    this.browser.close();
+                    this.page = null;
+                    this.browser = null;
                 }
                 catch (e) {
                     return reject(e);
                 }
-            })).then(() => this.browser.close().then(() => this.browser = null));
+            }));
         }
     }
     isPreviousReferenceAvailable() {
