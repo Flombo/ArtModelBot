@@ -18,7 +18,6 @@ import {IReference} from "../models/referenceModels/IReference";
 export class PoseMessageEventHandler implements IMessageEventHandler {
 
     private referenceRetriever : IReferenceRetriever;
-    private isPreviousButtonEnabled : boolean;
     private lastMessageContent : string;
 
     constructor() {
@@ -119,7 +118,7 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
                     .setStyle(ButtonStyle.Danger)
             );
 
-        if(this.isPreviousButtonEnabled) {
+        if(this.referenceRetriever.isPreviousReferenceAvailable()) {
             actionRowBuilder.addComponents(
                 new ButtonBuilder()
                 .setCustomId('previous')
@@ -150,30 +149,39 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
     }
 
     onButtonClicked(buttonInteraction: ButtonInteraction): void {
-        switch (buttonInteraction.customId) {
-            case 'next':
-                this.isPreviousButtonEnabled = true;
-                this.referenceRetriever.getNextReference().then(
-                    nextReference => {
-                        console.log(nextReference)
-                        try {
-                            buttonInteraction.reply({ embeds: [this.buildReferenceMessage(nextReference)], components: [this.createReferenceButtons()] });
-                        } catch (e) {
-                            buttonInteraction.reply({ embeds: [this.buildReferenceErrorMessage()]});
+        try {
+            switch (buttonInteraction.customId) {
+                case 'next':
+                    this.referenceRetriever.getNextReference().then(
+                        nextReference => {
+                            console.log(nextReference)
+                            try {
+                                buttonInteraction.reply({
+                                    embeds: [this.buildReferenceMessage(nextReference)],
+                                    components: [this.createReferenceButtons()]
+                                });
+                            } catch (e) {
+                                buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+                            }
                         }
-                    }
-                );
-                break;
-            case 'Previous':
-                const previousReference : IReference = this.referenceRetriever.getPreviousReference();
-                buttonInteraction.reply({embeds: [this.buildReferenceMessage(previousReference)], components: [this.createReferenceButtons()]});
-                break;
-            case 'stopSession':
-                this.isPreviousButtonEnabled = false;
-                buttonInteraction.reply({content: 'Session stopped successfully'});
-                break;
-            case '':
-                break;
+                    );
+                    break;
+                case 'previous':
+                    const previousReference: IReference = this.referenceRetriever.getPreviousReference();
+                    buttonInteraction.reply({
+                        embeds: [this.buildReferenceMessage(previousReference)],
+                        components: [this.createReferenceButtons()]
+                    });
+                    break;
+                case 'stopSession':
+                    buttonInteraction.reply({content: 'Session stopped successfully'});
+                    break;
+                case '':
+                    break;
+            }
+        } catch (e) {
+            this.referenceRetriever.stopSession();
+            buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
         }
     }
 

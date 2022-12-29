@@ -88,7 +88,7 @@ class PoseMessageEventHandler {
             .setCustomId('stopSession')
             .setLabel('Stop session')
             .setStyle(discord_js_1.ButtonStyle.Danger));
-        if (this.isPreviousButtonEnabled) {
+        if (this.referenceRetriever.isPreviousReferenceAvailable()) {
             actionRowBuilder.addComponents(new discord_js_1.ButtonBuilder()
                 .setCustomId('previous')
                 .setLabel('Previous reference')
@@ -110,29 +110,39 @@ class PoseMessageEventHandler {
         message.channel.send({ embeds: [embedBuilder] });
     }
     onButtonClicked(buttonInteraction) {
-        switch (buttonInteraction.customId) {
-            case 'next':
-                this.isPreviousButtonEnabled = true;
-                this.referenceRetriever.getNextReference().then(nextReference => {
-                    console.log(nextReference);
-                    try {
-                        buttonInteraction.reply({ embeds: [this.buildReferenceMessage(nextReference)], components: [this.createReferenceButtons()] });
-                    }
-                    catch (e) {
-                        buttonInteraction.reply({ embeds: [this.buildReferenceErrorMessage()] });
-                    }
-                });
-                break;
-            case 'Previous':
-                const previousReference = this.referenceRetriever.getPreviousReference();
-                buttonInteraction.reply({ embeds: [this.buildReferenceMessage(previousReference)], components: [this.createReferenceButtons()] });
-                break;
-            case 'stopSession':
-                this.isPreviousButtonEnabled = false;
-                buttonInteraction.reply({ content: 'Session stopped successfully' });
-                break;
-            case '':
-                break;
+        try {
+            switch (buttonInteraction.customId) {
+                case 'next':
+                    this.referenceRetriever.getNextReference().then(nextReference => {
+                        console.log(nextReference);
+                        try {
+                            buttonInteraction.reply({
+                                embeds: [this.buildReferenceMessage(nextReference)],
+                                components: [this.createReferenceButtons()]
+                            });
+                        }
+                        catch (e) {
+                            buttonInteraction.reply({ embeds: [this.buildReferenceErrorMessage()] });
+                        }
+                    });
+                    break;
+                case 'previous':
+                    const previousReference = this.referenceRetriever.getPreviousReference();
+                    buttonInteraction.reply({
+                        embeds: [this.buildReferenceMessage(previousReference)],
+                        components: [this.createReferenceButtons()]
+                    });
+                    break;
+                case 'stopSession':
+                    buttonInteraction.reply({ content: 'Session stopped successfully' });
+                    break;
+                case '':
+                    break;
+            }
+        }
+        catch (e) {
+            this.referenceRetriever.stopSession();
+            buttonInteraction.reply({ embeds: [this.buildReferenceErrorMessage()] });
         }
     }
 }

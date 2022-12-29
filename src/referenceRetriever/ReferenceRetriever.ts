@@ -8,7 +8,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
 
     private browser : Browser = null;
     private page : Page = null;
-    private previousReference : IReference = null;
+    private previousReferences : Array<IReference> = new Array<IReference>();
     private currentReference : IReference = null;
 
     async loadReference(commandMessage: CommandMessage): Promise<IReference> {
@@ -106,7 +106,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
     }
 
     getNextReference(): Promise<IReference> {
-        this.previousReference = this.currentReference;
+        this.previousReferences.push(this.currentReference);
         return new Promise(async (resolve, reject) => {
             try {
                 await this.page.evaluate(() => {
@@ -118,7 +118,8 @@ export class ReferenceRetriever implements IReferenceRetriever{
                 const imageUrl: string = await this.retrieveReferenceUrl(this.page);
                 const owner: string = await this.retrieveReferenceOwner(this.page);
 
-                return resolve(new Reference(imageUrl, owner));
+                this.currentReference = new Reference(imageUrl, owner);
+                return resolve(this.currentReference);
             } catch (e) {
                 return reject(e);
             }
@@ -126,8 +127,8 @@ export class ReferenceRetriever implements IReferenceRetriever{
     }
 
     getPreviousReference(): IReference {
-        this.currentReference = this.previousReference;
-        return this.previousReference;
+        if(this.browser === null) throw ReferenceError();
+        return this.previousReferences.pop();
     }
 
     stopSession(): void {
@@ -138,12 +139,18 @@ export class ReferenceRetriever implements IReferenceRetriever{
                         const endButton: HTMLSpanElement = document.querySelector('.button.close');
                         endButton.click();
                     });
+                    this.previousReferences = new Array<IReference>();
+                    this.currentReference = null;
                 } catch (e) {
                     return reject(e);
                 }
             }).then(() =>  this.browser.close().then(() => this.browser = null));
 
         }
+    }
+
+    isPreviousReferenceAvailable(): boolean {
+        return this.previousReferences.length > 0;
     }
 
 }

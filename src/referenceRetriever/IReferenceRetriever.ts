@@ -11,6 +11,8 @@ export interface IReferenceRetriever {
 
     getPreviousReference() : IReference;
 
+    isPreviousReferenceAvailable() : boolean;
+
     mirrorVertical() : IReference;
 
     mirrorHorizontal() : IReference;
