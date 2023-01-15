@@ -52,4 +52,5 @@ export class Reference implements IReference {
         this.height = currentWidth;
         this.width = currentHeight;
     }
+
 }

@@ -6,11 +6,20 @@ import puppeteer, {Browser, Page} from 'puppeteer';
 import {Canvas, createCanvas, loadImage} from 'canvas';
 
 export class ReferenceRetriever implements IReferenceRetriever{
+    get currentReference(): IReference {
+        return this._currentReference;
+    }
+
+    set currentReference(value: IReference) {
+        console.log('currentRef set to:', value);
+        console.trace();
+        this._currentReference = value;
+    }
 
     private browser : Browser = null;
     private page : Page = null;
     private previousReferences : Array<IReference> = new Array<IReference>();
-    private currentReference : IReference = null;
+    private _currentReference : IReference = null;
 
     async loadReference(commandMessage: CommandMessage): Promise<IReference> {
         return await this.retrieveReferenceFromSite(commandMessage);
@@ -21,38 +30,31 @@ export class ReferenceRetriever implements IReferenceRetriever{
      * @param commandMessage
      * @private
      */
-    private retrieveReferenceFromSite(commandMessage : CommandMessage) : Promise<IReference> {
+    private async retrieveReferenceFromSite(commandMessage : CommandMessage) : Promise<IReference> {
 
-        return new Promise(async (resolve, reject) => {
-            try {
-
-                if(this.browser !== null) {
-                    await this.browser.close();
-                    this.page = null;
-                    this.browser = null;
-                }
-
-                this.browser = await puppeteer.launch();
-
-                this.page = await this.browser.newPage();
-                await this.page.goto('https://quickposes.com/en/gestures/random');
-
-                let options : Array<string> = commandMessage.options;
-
-                await this.makeReferenceSelection(this.page, options)
-
-                // Need to wait until the DOM is completely loaded, else the reference won't be there.
-                await this.page.waitForNetworkIdle();
-
-                this.currentReference = await this.retrieveReferenceUrl(this.page);
-                this.currentReference.source = await this.retrieveReferenceOwner(this.page);
-                this.previousReferences.push(this.currentReference);
-
-                return resolve(this.currentReference);
-            } catch (e) {
-                return reject(e);
+            if(this.browser !== null) {
+                await this.browser.close();
+                this.page = null;
+                this.browser = null;
             }
-        });
+
+            this.browser = await puppeteer.launch();
+
+            this.page = await this.browser.newPage();
+            await this.page.goto('https://quickposes.com/en/gestures/random');
+
+            let options : Array<string> = commandMessage.options;
+
+            await this.makeReferenceSelection(this.page, options)
+
+            // Need to wait until the DOM is completely loaded, else the reference won't be there.
+            await this.page.waitForNetworkIdle();
+
+            this.currentReference = await this.retrieveReferenceUrl(this.page);
+            this.currentReference.source = await this.retrieveReferenceOwner(this.page);
+            this.previousReferences.push(this.currentReference);
+
+            return this.currentReference;
     }
 
     private async retrieveReferenceOwner(page : Page) : Promise<string> {
@@ -104,27 +106,27 @@ export class ReferenceRetriever implements IReferenceRetriever{
     }
 
     async rotateCounterClockwise(): Promise<IReference> {
-        this.currentReference.switchWidthAndHeight();
-        const referenceImage = this.currentReference.referenceImage;
-        const img = await loadImage(referenceImage);
-        const canvas: Canvas = createCanvas(this.currentReference.width, this.currentReference.height);
-        const ctx = canvas.getContext('2d');
-        ctx.translate(-this.currentReference.width, 0);
-        ctx.rotate(-90 * Math.PI / 180);
-        ctx.drawImage(img, 0, 0);
-        this.currentReference.referenceImage = canvas.toDataURL();
-        this.previousReferences.push(this.currentReference);
-        return this.currentReference;
+        return await this.rotate(false);
     }
 
     async rotateClockwise(): Promise<IReference> {
+        return await this.rotate();
+    }
+
+    private async rotate(rotateRight :  boolean = true) : Promise<IReference> {
         this.currentReference.switchWidthAndHeight();
         const canvas: Canvas = createCanvas(this.currentReference.width, this.currentReference.height);
         const ctx = canvas.getContext('2d')
 
         const img = await loadImage(this.currentReference.referenceImage);
-        ctx.translate(this.currentReference.width, 0);
-        ctx.rotate(90 * Math.PI / 180);
+
+        if(rotateRight) {
+            ctx.translate(this.currentReference.width, 0);
+            ctx.rotate(90 * Math.PI / 180);
+        } else {
+            ctx.translate(-this.currentReference.width, 0);
+            ctx.rotate(-90 * Math.PI / 180);
+        }
         ctx.drawImage(img, 0, 0);
 
         this.currentReference.referenceImage = canvas.toDataURL();
@@ -170,7 +172,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
                     });
                     this.previousReferences = new Array<IReference>();
                     this.currentReference = null;
-                    this.browser.close();
+                    await this.browser.close();
                     this.page = null;
                     this.browser = null;
                 } catch (e) {
