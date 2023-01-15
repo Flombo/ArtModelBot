@@ -6,7 +6,7 @@ import {
     ButtonBuilder,
     ActionRowBuilder,
     ButtonStyle,
-    ButtonInteraction,
+    ButtonInteraction, AttachmentBuilder,
 } from "discord.js";
 import {IMessageEventHandler} from "./IMessageEventHandler";
 import {IPoseCommandValidator} from "../validators/IPoseCommandValidator";
@@ -105,12 +105,12 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
                     .setLabel('Next reference')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
-                    .setCustomId('mirrorVertically')
-                    .setLabel('Mirror vertically')
+                    .setCustomId('rotateCounterClockwise')
+                    .setLabel('Rotate counter-clockwise')
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
-                    .setCustomId('mirrorHorizontally')
-                    .setLabel('Mirror horizontally')
+                    .setCustomId('rotateClockwise')
+                    .setLabel('Rotate clockwise')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId('stopSession')
@@ -154,7 +154,6 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
                 case 'next':
                     this.referenceRetriever.getNextReference().then(
                         nextReference => {
-                            console.log(nextReference)
                             try {
                                 buttonInteraction.reply({
                                     embeds: [this.buildReferenceMessage(nextReference)],
@@ -177,7 +176,36 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
                     this.referenceRetriever.stopSession();
                     buttonInteraction.reply({content: 'Session stopped successfully'});
                     break;
-                case '':
+                case 'rotateCounterClockwise':
+                    this.referenceRetriever.rotateCounterClockwise().then(mirroredReference => {
+                        try {
+                            const data = mirroredReference.referenceImage.split(',')[1];
+                            const buf : Buffer = Buffer.from(data, 'base64');
+                            const attachment = new AttachmentBuilder(buf);
+
+                            buttonInteraction.reply({
+                                files: [attachment],
+                                components: [this.createReferenceButtons()]
+                            });
+                        } catch (e) {
+                            buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+                        }
+                    });
+                    break;
+                case 'rotateClockwise':
+                    this.referenceRetriever.rotateClockwise().then(mirroredReference => {
+                        try {
+                            const data = mirroredReference.referenceImage.split(',')[1];
+                            const buf : Buffer = Buffer.from(data, 'base64');
+                            const attachment = new AttachmentBuilder(buf);
+                            buttonInteraction.reply({
+                                files: [attachment],
+                                components: [this.createReferenceButtons()]
+                            });
+                        } catch (e) {
+                            buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+                        }
+                    });
                     break;
             }
         } catch (e) {

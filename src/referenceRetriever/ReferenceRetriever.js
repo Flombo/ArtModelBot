@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReferenceRetriever = void 0;
 const Reference_1 = require("../models/referenceModels/Reference");
 const puppeteer_1 = require("puppeteer");
+const canvas_1 = require("canvas");
 class ReferenceRetriever {
     constructor() {
         this.browser = null;
@@ -44,9 +45,9 @@ class ReferenceRetriever {
                 yield this.makeReferenceSelection(this.page, options);
                 // Need to wait until the DOM is completely loaded, else the reference won't be there.
                 yield this.page.waitForNetworkIdle();
-                const imgUrl = yield this.retrieveReferenceUrl(this.page);
-                const imgOwner = yield this.retrieveReferenceOwner(this.page);
-                this.currentReference = new Reference_1.Reference(imgUrl, imgOwner);
+                this.currentReference = yield this.retrieveReferenceUrl(this.page);
+                this.currentReference.source = yield this.retrieveReferenceOwner(this.page);
+                this.previousReferences.push(this.currentReference);
                 return resolve(this.currentReference);
             }
             catch (e) {
@@ -68,10 +69,16 @@ class ReferenceRetriever {
     }
     retrieveReferenceUrl(page) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield page.evaluate(() => {
+            const reference = new Reference_1.Reference('', '', 0, 0);
+            return yield page.evaluate((reference) => {
                 const images = document.querySelectorAll("img");
-                return images[images.length - 1].src;
-            });
+                const image = images[images.length - 1];
+                reference.referenceImage = image.src;
+                reference.source = '';
+                reference.width = image.naturalWidth;
+                reference.height = image.naturalHeight;
+                return reference;
+            }, reference);
         });
     }
     /**
@@ -95,16 +102,38 @@ class ReferenceRetriever {
             }, options);
         });
     }
-    mirrorHorizontal() {
-        return undefined;
+    rotateCounterClockwise() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.currentReference.switchWidthAndHeight();
+            const referenceImage = this.currentReference.referenceImage;
+            const img = yield (0, canvas_1.loadImage)(referenceImage);
+            const canvas = (0, canvas_1.createCanvas)(this.currentReference.width, this.currentReference.height);
+            const ctx = canvas.getContext('2d');
+            ctx.translate(-this.currentReference.width, 0);
+            ctx.rotate(-90 * Math.PI / 180);
+            ctx.drawImage(img, 0, 0);
+            this.currentReference.referenceImage = canvas.toDataURL();
+            this.previousReferences.push(this.currentReference);
+            return this.currentReference;
+        });
     }
-    mirrorVertical() {
-        return undefined;
+    rotateClockwise() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.currentReference.switchWidthAndHeight();
+            const canvas = (0, canvas_1.createCanvas)(this.currentReference.width, this.currentReference.height);
+            const ctx = canvas.getContext('2d');
+            const img = yield (0, canvas_1.loadImage)(this.currentReference.referenceImage);
+            ctx.translate(this.currentReference.width, 0);
+            ctx.rotate(90 * Math.PI / 180);
+            ctx.drawImage(img, 0, 0);
+            this.currentReference.referenceImage = canvas.toDataURL();
+            this.previousReferences.push(this.currentReference);
+            return this.currentReference;
+        });
     }
     getNextReference() {
         if (this.page === null)
             throw new ReferenceError("Unable to load next reference. The session is already closed.");
-        this.previousReferences.push(this.currentReference);
         return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.page.evaluate(() => {
@@ -112,9 +141,10 @@ class ReferenceRetriever {
                     nextButton.click();
                 });
                 yield this.page.waitForNetworkIdle();
-                const imageUrl = yield this.retrieveReferenceUrl(this.page);
-                const owner = yield this.retrieveReferenceOwner(this.page);
-                this.currentReference = new Reference_1.Reference(imageUrl, owner);
+                const reference = yield this.retrieveReferenceUrl(this.page);
+                reference.source = yield this.retrieveReferenceOwner(this.page);
+                this.currentReference = reference;
+                this.previousReferences.push(this.currentReference);
                 return resolve(this.currentReference);
             }
             catch (e) {

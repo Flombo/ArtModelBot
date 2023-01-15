@@ -79,11 +79,11 @@ class PoseMessageEventHandler {
             .setCustomId('next')
             .setLabel('Next reference')
             .setStyle(discord_js_1.ButtonStyle.Primary), new discord_js_1.ButtonBuilder()
-            .setCustomId('mirrorVertically')
-            .setLabel('Mirror vertically')
+            .setCustomId('rotateCounterClockwise')
+            .setLabel('Rotate counter-clockwise')
             .setStyle(discord_js_1.ButtonStyle.Secondary), new discord_js_1.ButtonBuilder()
-            .setCustomId('mirrorHorizontally')
-            .setLabel('Mirror horizontally')
+            .setCustomId('rotateClockwise')
+            .setLabel('Rotate clockwise')
             .setStyle(discord_js_1.ButtonStyle.Success), new discord_js_1.ButtonBuilder()
             .setCustomId('stopSession')
             .setLabel('Stop session')
@@ -114,7 +114,6 @@ class PoseMessageEventHandler {
             switch (buttonInteraction.customId) {
                 case 'next':
                     this.referenceRetriever.getNextReference().then(nextReference => {
-                        console.log(nextReference);
                         try {
                             buttonInteraction.reply({
                                 embeds: [this.buildReferenceMessage(nextReference)],
@@ -137,7 +136,37 @@ class PoseMessageEventHandler {
                     this.referenceRetriever.stopSession();
                     buttonInteraction.reply({ content: 'Session stopped successfully' });
                     break;
-                case '':
+                case 'rotateCounterClockwise':
+                    this.referenceRetriever.rotateCounterClockwise().then(mirroredReference => {
+                        try {
+                            const data = mirroredReference.referenceImage.split(',')[1];
+                            const buf = Buffer.from(data, 'base64');
+                            const attachment = new discord_js_1.AttachmentBuilder(buf);
+                            buttonInteraction.reply({
+                                files: [attachment],
+                                components: [this.createReferenceButtons()]
+                            });
+                        }
+                        catch (e) {
+                            buttonInteraction.reply({ embeds: [this.buildReferenceErrorMessage()] });
+                        }
+                    });
+                    break;
+                case 'rotateClockwise':
+                    this.referenceRetriever.rotateClockwise().then(mirroredReference => {
+                        try {
+                            const data = mirroredReference.referenceImage.split(',')[1];
+                            const buf = Buffer.from(data, 'base64');
+                            const attachment = new discord_js_1.AttachmentBuilder(buf);
+                            buttonInteraction.reply({
+                                files: [attachment],
+                                components: [this.createReferenceButtons()]
+                            });
+                        }
+                        catch (e) {
+                            buttonInteraction.reply({ embeds: [this.buildReferenceErrorMessage()] });
+                        }
+                    });
                     break;
             }
         }

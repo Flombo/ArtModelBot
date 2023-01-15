@@ -13,8 +13,8 @@ export interface IReferenceRetriever {
 
     isPreviousReferenceAvailable() : boolean;
 
-    mirrorVertical() : IReference;
+    rotateClockwise() : Promise<IReference>;
 
-    mirrorHorizontal() : IReference;
+    rotateCounterClockwise() : Promise<IReference>;
 
 }

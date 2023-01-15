@@ -3,6 +3,7 @@ import {CommandMessage} from "../models/CommandMessage";
 import {IReference} from "../models/referenceModels/IReference";
 import {Reference} from "../models/referenceModels/Reference";
 import puppeteer, {Browser, Page} from 'puppeteer';
+import {Canvas, createCanvas, loadImage} from 'canvas';
 
 export class ReferenceRetriever implements IReferenceRetriever{
 
@@ -43,10 +44,9 @@ export class ReferenceRetriever implements IReferenceRetriever{
                 // Need to wait until the DOM is completely loaded, else the reference won't be there.
                 await this.page.waitForNetworkIdle();
 
-                const imgUrl : string = await this.retrieveReferenceUrl(this.page);
-                const imgOwner = await this.retrieveReferenceOwner(this.page);
-
-                this.currentReference = new Reference(imgUrl, imgOwner);
+                this.currentReference = await this.retrieveReferenceUrl(this.page);
+                this.currentReference.source = await this.retrieveReferenceOwner(this.page);
+                this.previousReferences.push(this.currentReference);
 
                 return resolve(this.currentReference);
             } catch (e) {
@@ -68,11 +68,17 @@ export class ReferenceRetriever implements IReferenceRetriever{
         });
     }
 
-    private async retrieveReferenceUrl(page : Page) : Promise<string> {
-        return await page.evaluate(() => {
+    private async retrieveReferenceUrl(page : Page) : Promise<IReference> {
+        const reference : IReference = new Reference('', '', 0, 0);
+        return await page.evaluate((reference) => {
             const images : NodeListOf<HTMLImageElement> = document.querySelectorAll("img");
-            return images[images.length - 1].src;
-        });
+            const image = images[images.length - 1];
+            reference.referenceImage = image.src;
+            reference.source = '';
+            reference.width = image.naturalWidth;
+            reference.height = image.naturalHeight;
+            return reference;
+        }, reference);
     }
 
     /**
@@ -97,17 +103,38 @@ export class ReferenceRetriever implements IReferenceRetriever{
         }, options);
     }
 
-    mirrorHorizontal(): IReference {
-        return undefined;
+    async rotateCounterClockwise(): Promise<IReference> {
+        this.currentReference.switchWidthAndHeight();
+        const referenceImage = this.currentReference.referenceImage;
+        const img = await loadImage(referenceImage);
+        const canvas: Canvas = createCanvas(this.currentReference.width, this.currentReference.height);
+        const ctx = canvas.getContext('2d');
+        ctx.translate(-this.currentReference.width, 0);
+        ctx.rotate(-90 * Math.PI / 180);
+        ctx.drawImage(img, 0, 0);
+        this.currentReference.referenceImage = canvas.toDataURL();
+        this.previousReferences.push(this.currentReference);
+        return this.currentReference;
     }
 
-    mirrorVertical(): IReference {
-        return undefined;
+    async rotateClockwise(): Promise<IReference> {
+        this.currentReference.switchWidthAndHeight();
+        const canvas: Canvas = createCanvas(this.currentReference.width, this.currentReference.height);
+        const ctx = canvas.getContext('2d')
+
+        const img = await loadImage(this.currentReference.referenceImage);
+        ctx.translate(this.currentReference.width, 0);
+        ctx.rotate(90 * Math.PI / 180);
+        ctx.drawImage(img, 0, 0);
+
+        this.currentReference.referenceImage = canvas.toDataURL();
+        this.previousReferences.push(this.currentReference);
+
+        return this.currentReference;
     }
 
     getNextReference(): Promise<IReference> {
         if(this.page === null) throw new ReferenceError("Unable to load next reference. The session is already closed.");
-        this.previousReferences.push(this.currentReference);
         return new Promise(async (resolve, reject) => {
             try {
                 await this.page.evaluate(() => {
@@ -116,10 +143,11 @@ export class ReferenceRetriever implements IReferenceRetriever{
                 });
                 await this.page.waitForNetworkIdle();
 
-                const imageUrl: string = await this.retrieveReferenceUrl(this.page);
-                const owner: string = await this.retrieveReferenceOwner(this.page);
+                const reference: IReference = await this.retrieveReferenceUrl(this.page);
+                reference.source = await this.retrieveReferenceOwner(this.page);
 
-                this.currentReference = new Reference(imageUrl, owner);
+                this.currentReference = reference;
+                this.previousReferences.push(this.currentReference);
                 return resolve(this.currentReference);
             } catch (e) {
                 return reject(e);

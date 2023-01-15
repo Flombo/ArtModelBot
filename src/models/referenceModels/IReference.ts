@@ -8,4 +8,14 @@ export interface IReference {
 
     set source(value: string);
 
+    get height() : number;
+
+    get width() : number;
+
+    set height(value: number);
+
+    set width(value: number);
+
+    switchWidthAndHeight() : void;
+
 }
