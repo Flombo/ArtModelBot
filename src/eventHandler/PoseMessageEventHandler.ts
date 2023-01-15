@@ -148,33 +148,33 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
         message.channel.send({embeds: [embedBuilder]});
     }
 
-    onButtonClicked(buttonInteraction: ButtonInteraction): void {
+    async onButtonClicked(buttonInteraction: ButtonInteraction): Promise<void> {
         try {
             switch (buttonInteraction.customId) {
                 case 'next':
                     this.referenceRetriever.getNextReference().then(
-                        nextReference => {
+                        async nextReference => {
                             try {
-                                buttonInteraction.reply({
+                                await buttonInteraction.reply({
                                     embeds: [this.buildReferenceMessage(nextReference)],
                                     components: [this.createReferenceButtons()]
                                 });
                             } catch (e) {
-                                buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+                                await buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
                             }
                         }
                     );
                     break;
                 case 'previous':
                     const previousReference: IReference = this.referenceRetriever.getPreviousReference();
-                    buttonInteraction.reply({
+                    await buttonInteraction.reply({
                         embeds: [this.buildReferenceMessage(previousReference)],
                         components: [this.createReferenceButtons()]
                     });
                     break;
                 case 'stopSession':
                     this.referenceRetriever.stopSession();
-                    buttonInteraction.reply({content: 'Session stopped successfully'});
+                    await buttonInteraction.reply({content: 'Session stopped successfully'});
                     break;
                 case 'rotateCounterClockwise':
                     this.referenceRetriever.rotateCounterClockwise().then(mirroredReference => {
@@ -185,7 +185,7 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
 
                             buttonInteraction.reply({
                                 files: [attachment],
-                                components: [this.createReferenceButtons()]
+                                components: [this.createReferenceButtons()],
                             });
                         } catch (e) {
                             buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
@@ -210,7 +210,7 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
             }
         } catch (e) {
             this.referenceRetriever.stopSession();
-            buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+            await buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
         }
     }
 

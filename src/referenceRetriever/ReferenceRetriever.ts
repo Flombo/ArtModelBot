@@ -43,7 +43,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
             this.page = await this.browser.newPage();
             await this.page.goto('https://quickposes.com/en/gestures/random');
 
-            let options : Array<string> = commandMessage.options;
+            const options : Array<string> = commandMessage.options;
 
             await this.makeReferenceSelection(this.page, options)
 
@@ -59,7 +59,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
 
     private async retrieveReferenceOwner(page : Page) : Promise<string> {
         return await page.evaluate(() => {
-            let owner : string = 'No owner data found';
+            let owner = 'No owner data found';
             const spanImgOwner : HTMLSpanElement = document.querySelector('span.qp-image-owner');
 
             if(spanImgOwner.textContent.length > 0) {
@@ -92,7 +92,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
     private async makeReferenceSelection(page : Page, options : Array<string>) : Promise<void> {
         await page.evaluate((options : Array<string>) => {
 
-            let items = document.querySelectorAll('span.ui-button-text');
+            const items = document.querySelectorAll('span.ui-button-text');
             items.forEach((item : HTMLElement) => {
                 if(options.includes(item.innerText, 0)) {
                     item.click();
@@ -113,7 +113,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
         return await this.rotate();
     }
 
-    private async rotate(rotateRight :  boolean = true) : Promise<IReference> {
+    private async rotate(rotateRight = true) : Promise<IReference> {
         this.currentReference.switchWidthAndHeight();
         const canvas: Canvas = createCanvas(this.currentReference.width, this.currentReference.height);
         const ctx = canvas.getContext('2d')
