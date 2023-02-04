@@ -1,10 +1,10 @@
 import {PoseMessageEventHandler} from "./eventHandler/PoseMessageEventHandler";
-
-require('dotenv').config();
-
+import {config} from "dotenv";
 import {ButtonInteraction, Client, Message} from "discord.js";
 import { GatewayIntentBits } from "discord.js";
 import {IMessageEventHandler} from "./eventHandler/IMessageEventHandler";
+
+config();
 
 const client : Client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const imessageEventHandler : IMessageEventHandler = new PoseMessageEventHandler();

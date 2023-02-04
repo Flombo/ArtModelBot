@@ -14,6 +14,10 @@ export class Reference implements IReference {
         this.height = height;
     }
 
+    Reference(): IReference {
+        return new Reference('', '', 0, 0);
+    }
+
     get referenceImage(): string {
         return this._referenceImage;
     }
@@ -34,23 +38,15 @@ export class Reference implements IReference {
         return this._height;
     }
 
-    get width(): number {
-        return this._width;
-    }
-
     set height(value : number) {
         this._height = value;
     }
 
+    get width(): number {
+        return this._width;
+    }
     set width(value : number) {
         this._width = value;
-    }
-
-    public switchWidthAndHeight() : void {
-        const currentWidth = this.width;
-        const currentHeight = this.height;
-        this.height = currentWidth;
-        this.width = currentHeight;
     }
 
 }

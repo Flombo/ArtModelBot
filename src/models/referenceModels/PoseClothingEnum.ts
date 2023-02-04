@@ -1,5 +1,5 @@
 export enum PoseClothingEnum {
     all = "all",
-    nudeAndPartiaallyNude = "nude&partiallynude",
+    nudeAndPartiallyNude = "nude&partiallynude",
     clothesAndCostumes = "clothes&costumes"
 }

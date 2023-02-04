@@ -24,6 +24,12 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
         this.referenceRetriever = new ReferenceRetriever();
     }
 
+    /**
+     * Handler for message events.
+     * Sends the reference message.
+     * If an error occurs an error message will be displayed.
+     * @param message
+     */
     public onMessageCreated(message : Message) : void {
         const commandMessage = new CommandMessage(message);
         const poseCommandValidator: IPoseCommandValidator = new PoseCommandValidator();
@@ -40,6 +46,51 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
         this.lastMessageContent = message.content;
         this.checkOptionsLength(commandMessage, message);
 
+    }
+
+    /**
+     * Handles click events on the reference action buttons.
+     * If the action wasn't successful an error message will be sent.
+     * @param buttonInteraction
+     */
+    public async onButtonClicked(buttonInteraction: ButtonInteraction): Promise<void> {
+        try {
+
+            let reference : IReference;
+
+            switch (buttonInteraction.customId) {
+                case 'next':
+                    reference = await this.referenceRetriever.getNextReference();
+                    await this.sendReferenceReply(reference, buttonInteraction);
+                    break;
+                case 'previous':
+                    reference = this.referenceRetriever.getPreviousReference();
+                    await this.sendReferenceReply(reference, buttonInteraction);
+                    break;
+                case 'stopSession':
+                    await this.referenceRetriever.stopSession();
+                    await buttonInteraction.reply({content: 'Session stopped successfully'});
+                    break;
+                case 'rotateCounterClockwise':
+                    reference = await this.referenceRetriever.rotateCounterClockwise();
+                    await this.sendTransformationReply(reference, buttonInteraction);
+                    break;
+                case 'rotateClockwise':
+                    reference = await this.referenceRetriever.rotateClockwise();
+                    await this.sendTransformationReply(reference, buttonInteraction);
+                    break;
+                case 'mirror':
+                    reference = await this.referenceRetriever.mirror();
+                    await this.sendTransformationReply(reference, buttonInteraction);
+                    break;
+            }
+
+            reference = null;
+
+        } catch (e) {
+            await this.referenceRetriever.stopSession();
+            await buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+        }
     }
 
     private checkOptionsLength(commandMessage: CommandMessage, message: Message): void {
@@ -62,7 +113,7 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
     private sendReference(message : Message, commandMessage : CommandMessage) {
         try {
             this.referenceRetriever.loadReference(commandMessage).then(reference => {
-                message.channel.send({embeds: [this.buildReferenceMessage(reference)], components: [this.createReferenceButtons()]});
+                message.channel.send({embeds: [this.buildReferenceMessage(reference)], components: [this.createFirstRowReferenceButtons(), this.createSecondRowReferenceButtons()]});
             });
         } catch (e) {
             message.channel.send({embeds: [this.buildReferenceErrorMessage()]});
@@ -97,7 +148,7 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
      * Returns buttons for controlling the open quickposes session.
      * @private
      */
-    private createReferenceButtons() : ActionRowBuilder<ButtonBuilder> {
+    private createFirstRowReferenceButtons() : ActionRowBuilder<ButtonBuilder> {
         const actionRowBuilder : ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
             .setComponents(
                 new ButtonBuilder()
@@ -130,6 +181,15 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
         return actionRowBuilder;
     }
 
+    private createSecondRowReferenceButtons() {
+        return new ActionRowBuilder<ButtonBuilder>()
+            .setComponents(
+                new ButtonBuilder()
+                    .setCustomId('mirror')
+                    .setLabel('Mirror')
+                    .setStyle(ButtonStyle.Success));
+    }
+
     private sendHelpMessage(message : Message) {
         const embedBuilder : EmbedBuilder = new EmbedBuilder();
         embedBuilder.setColor(0x0099FF)
@@ -148,68 +208,33 @@ export class PoseMessageEventHandler implements IMessageEventHandler {
         message.channel.send({embeds: [embedBuilder]});
     }
 
-    async onButtonClicked(buttonInteraction: ButtonInteraction): Promise<void> {
+    private async sendTransformationReply(
+        transformedReference : IReference,
+        buttonInteraction : ButtonInteraction
+    ) : Promise<void> {
         try {
-            switch (buttonInteraction.customId) {
-                case 'next':
-                    this.referenceRetriever.getNextReference().then(
-                        async nextReference => {
-                            try {
-                                await buttonInteraction.reply({
-                                    embeds: [this.buildReferenceMessage(nextReference)],
-                                    components: [this.createReferenceButtons()]
-                                });
-                            } catch (e) {
-                                await buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
-                            }
-                        }
-                    );
-                    break;
-                case 'previous':
-                    const previousReference: IReference = this.referenceRetriever.getPreviousReference();
-                    await buttonInteraction.reply({
-                        embeds: [this.buildReferenceMessage(previousReference)],
-                        components: [this.createReferenceButtons()]
-                    });
-                    break;
-                case 'stopSession':
-                    this.referenceRetriever.stopSession();
-                    await buttonInteraction.reply({content: 'Session stopped successfully'});
-                    break;
-                case 'rotateCounterClockwise':
-                    this.referenceRetriever.rotateCounterClockwise().then(mirroredReference => {
-                        try {
-                            const data = mirroredReference.referenceImage.split(',')[1];
-                            const buf : Buffer = Buffer.from(data, 'base64');
-                            const attachment = new AttachmentBuilder(buf);
-
-                            buttonInteraction.reply({
-                                files: [attachment],
-                                components: [this.createReferenceButtons()],
-                            });
-                        } catch (e) {
-                            buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
-                        }
-                    });
-                    break;
-                case 'rotateClockwise':
-                    this.referenceRetriever.rotateClockwise().then(mirroredReference => {
-                        try {
-                            const data = mirroredReference.referenceImage.split(',')[1];
-                            const buf : Buffer = Buffer.from(data, 'base64');
-                            const attachment = new AttachmentBuilder(buf);
-                            buttonInteraction.reply({
-                                files: [attachment],
-                                components: [this.createReferenceButtons()]
-                            });
-                        } catch (e) {
-                            buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
-                        }
-                    });
-                    break;
-            }
+            const data = transformedReference.referenceImage.split(',')[1];
+            const buf : Buffer = Buffer.from(data, 'base64');
+            const attachment = new AttachmentBuilder(buf);
+            await buttonInteraction.reply({
+                files: [attachment],
+                components: [this.createFirstRowReferenceButtons(), this.createSecondRowReferenceButtons()]
+            });
         } catch (e) {
-            this.referenceRetriever.stopSession();
+            await buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
+        }
+    }
+
+    private async sendReferenceReply(
+        reference : IReference,
+        buttonInteraction : ButtonInteraction
+    ) : Promise<void> {
+        try {
+            await buttonInteraction.reply({
+                embeds: [this.buildReferenceMessage(reference)],
+                components: [this.createFirstRowReferenceButtons(), this.createSecondRowReferenceButtons()]
+            });
+        } catch (e) {
             await buttonInteraction.reply({embeds: [this.buildReferenceErrorMessage()]});
         }
     }

@@ -3,33 +3,31 @@ import {CommandMessage} from "../models/CommandMessage";
 import {IReference} from "../models/referenceModels/IReference";
 import {Reference} from "../models/referenceModels/Reference";
 import puppeteer, {Browser, Page} from 'puppeteer';
-import {Canvas, createCanvas, loadImage} from 'canvas';
+import {Canvas, CanvasRenderingContext2D, createCanvas, loadImage} from 'canvas';
 
 export class ReferenceRetriever implements IReferenceRetriever{
+
+    private browser : Browser = null;
+    private switchImgDimension = true;
+    private previouslyRotated = false;
+    private canvas : Canvas;
+    private context : CanvasRenderingContext2D;
+    private page : Page = null;
+    private previousReferences : Array<IReference> = new Array<IReference>();
+    private _currentReference : IReference = new Reference('', '', 0, 0);
+
     get currentReference(): IReference {
         return this._currentReference;
     }
 
     set currentReference(value: IReference) {
-        console.log('currentRef set to:', value);
-        console.trace();
         this._currentReference = value;
     }
-
-    private browser : Browser = null;
-    private page : Page = null;
-    private previousReferences : Array<IReference> = new Array<IReference>();
-    private _currentReference : IReference = null;
 
     async loadReference(commandMessage: CommandMessage): Promise<IReference> {
         return await this.retrieveReferenceFromSite(commandMessage);
     }
 
-    /**
-     * Returns a reference equal to the entered command.
-     * @param commandMessage
-     * @private
-     */
     private async retrieveReferenceFromSite(commandMessage : CommandMessage) : Promise<IReference> {
 
             if(this.browser !== null) {
@@ -41,7 +39,7 @@ export class ReferenceRetriever implements IReferenceRetriever{
             this.browser = await puppeteer.launch();
 
             this.page = await this.browser.newPage();
-            await this.page.goto('https://quickposes.com/en/gestures/random');
+            await this.page.goto(process.env.REFERENCEURL);
 
             const options : Array<string> = commandMessage.options;
 
@@ -114,25 +112,71 @@ export class ReferenceRetriever implements IReferenceRetriever{
     }
 
     private async rotate(rotateRight = true) : Promise<IReference> {
-        this.currentReference.switchWidthAndHeight();
-        const canvas: Canvas = createCanvas(this.currentReference.width, this.currentReference.height);
-        const ctx = canvas.getContext('2d')
+        this.setupContextAndCanvas();
+        const img = await loadImage(this.currentReference.referenceImage);
+
+        const imgHeight : number = img.height;
+        const imgWidth : number = img.width;
+
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.context.translate(this.canvas.width/2, this.canvas.height/2);
+
+        if(rotateRight) {
+            this.context.rotate(90 * Math.PI / 180);
+        } else {
+            this.context.rotate(-90 * Math.PI / 180);
+        }
+
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.context.translate(-(this.canvas.width/2), -(this.canvas.height/2));
+        this.context.drawImage(img, this.canvas.width/2 - imgWidth/2, this.canvas.height/2 - imgHeight/2, imgWidth, imgHeight);
+
+        this.currentReference.referenceImage = this.canvas.toDataURL();
+        this.previousReferences.push(this.currentReference);
+
+        this.switchImgDimension = !this.switchImgDimension;
+        this.previouslyRotated = true;
+
+        return this.currentReference;
+    }
+
+    async mirror(): Promise<IReference> {
+        this.switchImgDimension = this.previouslyRotated;
+        this.setupContextAndCanvas();
 
         const img = await loadImage(this.currentReference.referenceImage);
 
-        if(rotateRight) {
-            ctx.translate(this.currentReference.width, 0);
-            ctx.rotate(90 * Math.PI / 180);
-        } else {
-            ctx.translate(-this.currentReference.width, 0);
-            ctx.rotate(-90 * Math.PI / 180);
-        }
-        ctx.drawImage(img, 0, 0);
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.context.scale(-1, 1);
+        this.context.drawImage(img, -this.canvas.width, 0);
 
-        this.currentReference.referenceImage = canvas.toDataURL();
+        this.currentReference.referenceImage = this.canvas.toDataURL();
         this.previousReferences.push(this.currentReference);
 
         return this.currentReference;
+    }
+
+    private setupContextAndCanvas() : void {
+
+        let canvasWidth : number;
+        let canvasHeight : number;
+
+        if(this.switchImgDimension) {
+            canvasHeight = this.currentReference.width;
+            canvasWidth = this.currentReference.height;
+        } else {
+            canvasHeight = this.currentReference.height;
+            canvasWidth = this.currentReference.width;
+        }
+
+        if(!this.context) {
+            this.canvas = createCanvas(canvasWidth, canvasHeight);
+            this.context = this.canvas.getContext('2d')
+        }
+
+        this.canvas.width = canvasWidth;
+        this.canvas.height = canvasHeight;
+
     }
 
     getNextReference(): Promise<IReference> {
@@ -162,25 +206,23 @@ export class ReferenceRetriever implements IReferenceRetriever{
         return this.previousReferences.pop();
     }
 
-    stopSession(): void {
-        if(this.browser !== null) {
-            new Promise(async (resolve, reject) => {
-                try {
-                    await this.page.evaluate(() => {
-                        const endButton: HTMLSpanElement = document.querySelector('.button.close');
-                        endButton.click();
-                    });
-                    this.previousReferences = new Array<IReference>();
-                    this.currentReference = null;
-                    await this.browser.close();
-                    this.page = null;
-                    this.browser = null;
-                } catch (e) {
-                    return reject(e);
-                }
-            });
+    async stopSession(): Promise<void> {
+        this.canvas = null;
+        this.context = null;
+        this.switchImgDimension = true;
+        this.previouslyRotated = false;
+        this.previousReferences = new Array<IReference>();
+        this.currentReference = null;
 
+        if(this.browser !== null) {
+            await this.page.evaluate(() => {
+                const endButton: HTMLSpanElement = document.querySelector('.button.close');
+                endButton.click();
+            });
+            await this.browser.close();
+            this.browser = null;
         }
+        this.page = null;
     }
 
     isPreviousReferenceAvailable(): boolean {

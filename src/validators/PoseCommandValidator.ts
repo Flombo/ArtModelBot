@@ -26,7 +26,7 @@ export class PoseCommandValidator implements IPoseCommandValidator {
         this.handleValidationForCertainTypes(commandMessage, command);
     }
 
-    handleValidationForCertainTypes(commandMessage: CommandMessage, messageContent : string): void {
+    private handleValidationForCertainTypes(commandMessage: CommandMessage, messageContent : string): void {
         const type : string = commandMessage.options[0];
         const gender : string = commandMessage.options[1];
         const clothing : string = commandMessage.options[2];
@@ -62,19 +62,19 @@ export class PoseCommandValidator implements IPoseCommandValidator {
         }
     }
 
-    validateType(type: string, messageContent : string): void {
+    private validateType(type: string, messageContent : string): void {
         if(!Object.values(PoseTypesEnum).includes(type as PoseTypesEnum)) {
             throw new InvalidPoseCommandError(messageContent, InvalidPoseCommandEnum.type);
         }
     }
 
-    validateGender(gender: string, messageContent : string): void {
+    private validateGender(gender: string, messageContent : string): void {
         if(!Object.values(PoseGendersEnum).includes(gender as PoseGendersEnum)) {
             throw new InvalidPoseCommandError(messageContent, InvalidPoseCommandEnum.gender);
         }
     }
 
-    validateClothing(clothing: string, messageContent : string): void {
+    private validateClothing(clothing: string, messageContent : string): void {
         if(!Object.values(PoseClothingEnum).includes(clothing as PoseClothingEnum)) {
             throw new InvalidPoseCommandError(messageContent, InvalidPoseCommandEnum.clothing);
         }
