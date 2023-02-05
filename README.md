@@ -44,3 +44,5 @@ Discord bot that let artists retrieve reference images in discord from https://q
     - Retrieve a new reference for that command
     - Stop the session
     - Retrieve previous reference
+
+> &copy; 2023 Florian Pfützenreuter
