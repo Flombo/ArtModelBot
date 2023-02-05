@@ -36,10 +36,18 @@ export class ReferenceRetriever implements IReferenceRetriever{
                 this.browser = null;
             }
 
-            this.browser = await puppeteer.launch();
+            this.browser = await puppeteer.launch({
+                headless: true,
+                args: [
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--disable-setuid-sandbox",
+                    "--no-sandbox",
+                ]
+            });
 
             this.page = await this.browser.newPage();
-            await this.page.goto(process.env.REFERENCEURL);
+            await this.page.goto('https://quickposes.com/en/gestures/random');
 
             const options : Array<string> = commandMessage.options;
 
