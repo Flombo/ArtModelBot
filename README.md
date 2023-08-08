@@ -37,7 +37,7 @@ Discord bot that let artists retrieve reference images in discord from https://q
   - The bot lets you execute transformations and further actions on the retrieved reference over the displayed buttons:
     ![Rotated animal reference](docu_images/actionButtons.PNG "Rotated animal reference")
 
-    - Rotation (:unamused:):
+    - Rotation:
       ![Rotated animal reference](docu_images/rotate.PNG "Rotated animal reference")
     - Mirroring:
       ![Mirrored animal reference](docu_images/mirror.PNG "Mirrored animal reference") 
